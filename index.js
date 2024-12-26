@@ -17,6 +17,14 @@ initializeApp({
 const db = getDatabase();
 const usersRef = db.ref('users');
 
+db.ref('.info/connected').on('value', (snapshot) => {
+  if (snapshot.val() === true) {
+    console.log('[Firebase] Conexión establecida correctamente');
+  } else {
+    console.log('[Firebase] Desconectado de Firebase');
+  }
+});
+
 const app = express();
 const PORT = process.env.PORT || 3005;
 
@@ -57,7 +65,7 @@ const client = new Client({
 });
 
 const REWARDS = {
-  MESSAGES: { amount: 80, coins: 1 },
+  MESSAGES: { amount: 3, coins: 1 },
   VOICE_TIME: { amount: 8 * 60 * 60 * 1000, coins: 1 },
   DEBATE: { coins: 3 },
   LIBRARY: { coins: 1 },
@@ -96,8 +104,10 @@ function getMensajeAleatorio(tipo) {
 
 async function initUserData(userId) {
   try {
+    console.log(`[Firebase] Intentando obtener datos del usuario: ${userId}`);
     const snapshot = await usersRef.child(userId).get();
     if (!snapshot.exists()) {
+      console.log(`[Firebase] Usuario ${userId} no existe, creando nuevo registro`);
       const userData = {
         messages: 0,
         coins: 0,
@@ -107,12 +117,13 @@ async function initUserData(userId) {
         lastUpdated: Date.now()
       };
       await usersRef.child(userId).set(userData);
-      console.error(`[DB-Write] Nuevo usuario creado: ${userId}`);
+      console.log(`[Firebase] Usuario creado exitosamente:`, userData);
       return userData;
     }
+    console.log(`[Firebase] Datos del usuario recuperados:`, snapshot.val());
     return snapshot.val();
   } catch (error) {
-    console.error('[DB-Error] Error inicializando usuario:', error);
+    console.error('[Firebase-Error] Error inicializando usuario:', error);
     throw error;
   }
 }
