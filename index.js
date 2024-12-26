@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const { Client, IntentsBitField, Collection } = require('discord.js');
+const axios = require('axios'); // Añadir esta dependencia
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -26,7 +27,8 @@ const client = new Client({
     IntentsBitField.Flags.GuildMessages,
     IntentsBitField.Flags.MessageContent,
     IntentsBitField.Flags.GuildVoiceStates,
-    IntentsBitField.Flags.GuildMembers
+    IntentsBitField.Flags.GuildMembers,
+    IntentsBitField.Flags.GuildApplicationCommands  // Añadir este intent
   ],
 });
 
@@ -55,15 +57,42 @@ function initUserData(userId) {
   return userData.get(userId);
 }
 
-async function updateCoins(userId, amount) {
-  console.log(`[updateCoins] Actualizando monedas para usuario ${userId}: ${amount}`);
-  const data = initUserData(userId);
-  data.coins += amount;
-  console.log(`[updateCoins] Nuevo balance: ${data.coins}`);
-  return data.coins;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+
+async function reportCoins(userId, amount) {
+  console.log(`[reportCoins] Reportando monedas al backend - Usuario: ${userId}, Cantidad: ${amount}`);
+  try {
+    const response = await axios.post(`${BACKEND_URL}/discord/coins/report`, {
+      userId,
+      amount
+    }, {
+      headers: {
+        'x-bot-api-key': process.env.BOT_SYNC_KEY
+      }
+    });
+    console.log('[reportCoins] Respuesta del backend:', response.data);
+    return response.data.newBalance;
+  } catch (error) {
+    console.error('[reportCoins] Error al reportar monedas:', error.message);
+    throw new Error('Error al reportar monedas al backend');
+  }
 }
 
-client.on('ready', () => {
+async function getCoins(userId) {
+  try {
+    const response = await axios.get(`${BACKEND_URL}/discord/coins/${userId}`, {
+      headers: {
+        'x-bot-api-key': process.env.BOT_SYNC_KEY,
+      },
+    });
+    return response.data.balance;
+  } catch (error) {
+    console.error('[getCoins] Error al obtener saldo:', error.message);
+    throw new Error('Error al obtener saldo del backend');
+  }
+}
+
+client.on('ready', async () => {
   console.log(`[Bot] Iniciado correctamente como: ${client.user.tag}`);
   console.log(`[Bot] Configuración actual:`, REWARDS);
   console.log(`[Server] Bot y servidor HTTP listos`);
@@ -89,7 +118,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (data.voiceTime >= REWARDS.VOICE_TIME.amount) {
       console.log(`[Voice] Usuario ${userId} alcanzó el tiempo requerido para recompensa`);
       data.voiceTime = 0;
-      await updateCoins(userId, REWARDS.VOICE_TIME.coins);
+      await reportCoins(userId, REWARDS.VOICE_TIME.coins);
     }
   }
 });
@@ -108,7 +137,7 @@ client.on('messageCreate', async (message) => {
   if (data.messages >= REWARDS.MESSAGES.amount) {
     console.log(`[Message] Usuario ${userId} alcanzó ${REWARDS.MESSAGES.amount} mensajes`);
     data.messages = 0;
-    await updateCoins(userId, REWARDS.MESSAGES.coins);
+    await reportCoins(userId, REWARDS.MESSAGES.coins);
     await message.channel.send(
       `¡Felicidades ${message.author}! Ganaste ${REWARDS.MESSAGES.coins} moneda(s).`
     );
@@ -116,7 +145,7 @@ client.on('messageCreate', async (message) => {
 
   if (message.channel.name === 'debate') {
     console.log(`[Debate] Usuario ${userId} recibe recompensa por mensaje en debate`);
-    await updateCoins(userId, REWARDS.DEBATE.coins);
+    await reportCoins(userId, REWARDS.DEBATE.coins);
   }
 });
 
@@ -125,54 +154,93 @@ client.on('interactionCreate', async (interaction) => {
   
   console.log(`[Command] Comando recibido: ${interaction.commandName}`);
   console.log(`[Command] Usuario: ${interaction.user.id}`);
+  console.log(`[Command] Opciones:`, interaction.options.data);
   
   try {
-    const { commandName, options } = interaction;
-    
-    switch(commandName) {
+    switch(interaction.commandName) {
       case 'saldo': {
-        const data = initUserData(interaction.user.id);
-        console.log(`[Command-Saldo] Consultando saldo de ${interaction.user.id}: ${data.coins}`);
-        await interaction.reply(`Tienes ${data.coins} monedas.`);
+        const balance = await getCoins(interaction.user.id);
+        await interaction.reply({
+          content: `Tienes ${balance} monedas.`,
+          ephemeral: true
+        });
         break;
       }
       
       case 'dar-monedas': {
-        const user = options.getUser('usuario');
-        const amount = options.getInteger('cantidad');
-        console.log(`[Command-Dar] Dando ${amount} monedas a ${user.id}`);
-        await updateCoins(user.id, amount);
-        await interaction.reply(`Se otorgaron ${amount} monedas a ${user}.`);
-        break;
-      }
-      
-      case 'quitar-monedas': {
-        const user = options.getUser('usuario');
-        const amount = options.getInteger('cantidad');
-        await updateCoins(user.id, -amount);
-        await interaction.reply(`Se quitaron ${amount} monedas a ${user}.`);
+        // Verificar permisos de administrador
+        if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+          await interaction.reply({
+            content: 'No tienes permisos para usar este comando.',
+            ephemeral: true
+          });
+          return;
+        }
+        
+        const user = interaction.options.getUser('usuario');
+        const amount = interaction.options.getInteger('cantidad');
+        
+        if (!user || !amount) {
+          await interaction.reply({
+            content: 'Usuario o cantidad inválidos.',
+            ephemeral: true
+          });
+          return;
+        }
+        
+        console.log(`[Command-Dar] Admin ${interaction.user.id} dando ${amount} monedas a ${user.id}`);
+        await reportCoins(user.id, amount);
+        await interaction.reply({
+          content: `Se otorgaron ${amount} monedas a ${user}.`,
+          ephemeral: true
+        });
         break;
       }
       
       case 'transferir-monedas': {
-        const user = options.getUser('usuario');
-        const amount = options.getInteger('cantidad');
+        const user = interaction.options.getUser('usuario');
+        const amount = interaction.options.getInteger('cantidad');
         const senderData = initUserData(interaction.user.id);
         
-        if (senderData.coins < amount) {
-          await interaction.reply('No tienes suficientes monedas.');
+        if (!user || !amount) {
+          await interaction.reply({
+            content: 'Usuario o cantidad inválidos.',
+            ephemeral: true
+          });
           return;
         }
         
-        await updateCoins(interaction.user.id, -amount);
-        await updateCoins(user.id, amount);
-        await interaction.reply(`Transferiste ${amount} monedas a ${user}.`);
+        if (senderData.coins < amount) {
+          await interaction.reply({
+            content: 'No tienes suficientes monedas.',
+            ephemeral: true
+          });
+          return;
+        }
+        
+        console.log(`[Transfer] Usuario ${interaction.user.id} transfiriendo ${amount} monedas a ${user.id}`);
+        await reportCoins(interaction.user.id, -amount);
+        await reportCoins(user.id, amount);
+        await interaction.reply({
+          content: `Has transferido ${amount} monedas a ${user}.`,
+          ephemeral: true
+        });
         break;
+      }
+      
+      default: {
+        await interaction.reply({
+          content: 'Comando no reconocido.',
+          ephemeral: true
+        });
       }
     }
   } catch (error) {
     console.error('[ERROR]', error);
-    await interaction.reply('Hubo un error al procesar el comando.');
+    await interaction.reply({
+      content: 'Hubo un error al procesar el comando.',
+      ephemeral: true
+    });
   }
 });
 
