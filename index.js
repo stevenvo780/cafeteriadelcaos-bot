@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { Client, IntentsBitField, ChannelType } = require('discord.js');
+const { Client, IntentsBitField, ChannelType, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getDatabase } = require('firebase-admin/database');
@@ -153,6 +153,40 @@ async function notifyReward(userId, amount, reason) {
   await channel.send(mensaje);
 }
 
+async function sendActivityReport(userId, coins, reason) {
+  try {
+    if (!process.env.REPORT_CHANNEL_ID) {
+      console.log('[Report] No hay canal de reportes configurado');
+      return;
+    }
+
+    const channel = await client.channels.fetch(process.env.REPORT_CHANNEL_ID);
+    if (!channel) {
+      console.error('[Report] No se pudo encontrar el canal de reportes');
+      return;
+    }
+
+    const user = await client.users.fetch(userId);
+    const xpAmount = Number((coins / 2).toFixed(1));
+
+    const embed = new EmbedBuilder()
+      .setColor('#0099ff')
+      .setTitle('¡Nueva Actividad!')
+      .setDescription(`${user.username} ha ganado recompensas`)
+      .addFields(
+        { name: 'Monedas', value: `${coins} 🪙`, inline: true },
+        { name: 'Experiencia', value: `${xpAmount} ⭐`, inline: true },
+        { name: 'Razón', value: reason }
+      )
+      .setTimestamp();
+
+    await channel.send({ embeds: [embed] });
+    console.log(`[Report] Reporte enviado para ${user.username}`);
+  } catch (error) {
+    console.error('[Report-Error] Error enviando reporte:', error);
+  }
+}
+
 async function reportCoins(userId, amount, reason) {
   console.log(`[reportCoins] Reportando monedas al backend - Usuario: ${userId}, Cantidad: ${amount}`);
   try {
@@ -168,6 +202,7 @@ async function reportCoins(userId, amount, reason) {
     if (amount > 0) {
       const xpAmount = Number((amount / 2).toFixed(1));
       await notifyReward(userId, amount, `${reason} (+ ${xpAmount} XP)`);
+      await sendActivityReport(userId, amount, reason);
     }
     
     console.log('[reportCoins] Respuesta del backend:', response.data);
@@ -231,7 +266,11 @@ client.on('messageCreate', async (message) => {
     const userData = await initUserData(userId);
     const newMessageCount = (userData.messages || 0) + 1;
 
-    if (REWARDS.FORUMS.allowedForums.includes(message.channel.id)) {
+    const isForum = message.channel.type === ChannelType.GuildForum || 
+                   REWARDS.FORUMS.allowedForums.includes(message.channel.id);
+
+    if (isForum) {
+      console.log(`[Forum] Actividad detectada en foro/canal: ${message.channel.id}`);
       await reportCoins(userId, REWARDS.FORUMS.coins, "participación en foros");
     }
 
