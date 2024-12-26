@@ -65,11 +65,8 @@ const client = new Client({
 });
 
 const REWARDS = {
-  MESSAGES: { amount: 3, coins: 1 },
+  MESSAGES: { amount: 90, coins: 1 },
   VOICE_TIME: { amount: 8 * 60 * 60 * 1000, coins: 1 },
-  DEBATE: { coins: 3 },
-  LIBRARY: { coins: 1 },
-  BIBLIOTECA: { coins: 2 },
   FORUMS: {
     coins: 1,
     allowedForums: (process.env.REWARD_CHANNELS || '').split(',').filter(Boolean)
@@ -245,9 +242,6 @@ client.on('messageCreate', async (message) => {
       await updateUserData(userId, { messages: newMessageCount });
     }
 
-    if (message.channel.name === 'debate') {
-      await reportCoins(userId, REWARDS.DEBATE.coins, "participación en debate");
-    }
   } catch (error) {
     console.error('[Message-Error]', error);
   }
