@@ -1,7 +1,21 @@
 require('dotenv').config();
 const express = require('express');
-const { Client, IntentsBitField, Collection } = require('discord.js');
-const axios = require('axios'); // Añadir esta dependencia
+const { Client, IntentsBitField, ChannelType } = require('discord.js');
+const axios = require('axios');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getDatabase } = require('firebase-admin/database');
+
+initializeApp({
+  credential: cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  }),
+  databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`
+});
+
+const db = getDatabase();
+const usersRef = db.ref('users');
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -31,14 +45,16 @@ const client = new Client({
   ],
 });
 
-const userData = new Collection();
-
 const REWARDS = {
   MESSAGES: { amount: 80, coins: 1 },
   VOICE_TIME: { amount: 8 * 60 * 60 * 1000, coins: 1 },
   DEBATE: { coins: 3 },
   LIBRARY: { coins: 1 },
-  BIBLIOTECA: { coins: 2 }
+  BIBLIOTECA: { coins: 2 },
+  FORUMS: {
+    coins: 1,
+    allowedForums: (process.env.REWARD_CHANNELS || '').split(',').filter(Boolean)
+  }
 };
 
 const MENSAJES_CAOS = {
@@ -67,19 +83,40 @@ function getMensajeAleatorio(tipo) {
   return mensajes[Math.floor(Math.random() * mensajes.length)];
 }
 
-function initUserData(userId) {
-  console.log(`[initUserData] Inicializando datos para usuario: ${userId}`);
-  if (!userData.has(userId)) {
-    console.log(`[initUserData] Creando nuevos datos para usuario: ${userId}`);
-    userData.set(userId, {
-      messages: 0,
-      coins: 0,
-      points: 0,
-      voiceTime: 0,
-      voiceJoinedAt: null
-    });
+async function initUserData(userId) {
+  try {
+    const snapshot = await usersRef.child(userId).get();
+    if (!snapshot.exists()) {
+      const userData = {
+        messages: 0,
+        coins: 0,
+        points: 0,
+        voiceTime: 0,
+        voiceJoinedAt: null,
+        lastUpdated: Date.now()
+      };
+      await usersRef.child(userId).set(userData);
+      console.error(`[DB-Write] Nuevo usuario creado: ${userId}`);
+      return userData;
+    }
+    return snapshot.val();
+  } catch (error) {
+    console.error('[DB-Error] Error inicializando usuario:', error);
+    throw error;
   }
-  return userData.get(userId);
+}
+
+async function updateUserData(userId, updates) {
+  try {
+    await usersRef.child(userId).update({
+      ...updates,
+      lastUpdated: Date.now()
+    });
+    console.error(`[DB-Write] Usuario actualizado: ${userId}`);
+  } catch (error) {
+    console.error('[DB-Error] Error actualizando usuario:', error);
+    throw error;
+  }
 }
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
@@ -118,61 +155,60 @@ async function getCoins(userId) {
 }
 
 client.on('ready', async () => {
-  console.log(`[Bot] Iniciado correctamente como: ${client.user.tag}`);
+  console.error(`[Bot] Iniciado como: ${client.user.tag}`);
   console.log(`[Bot] Configuración actual:`, REWARDS);
   console.log(`[Server] Bot y servidor HTTP listos`);
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  const userId = newState.member.id;
-  console.log(`[Voice] Actualización de estado de voz para usuario: ${userId}`);
-  
-  const data = initUserData(userId);
+  try {
+    const userId = newState.member.id;
+    const userData = await initUserData(userId);
 
-  if (!oldState.channel && newState.channel) {
-    console.log(`[Voice] Usuario ${userId} se unió al canal: ${newState.channel.name}`);
-    data.voiceJoinedAt = Date.now();
-  }
-
-  if (oldState.channel && !newState.channel && data.voiceJoinedAt) {
-    const sessionTime = Date.now() - data.voiceJoinedAt;
-    console.log(`[Voice] Usuario ${userId} estuvo en llamada por: ${sessionTime/1000} segundos`);
-    data.voiceTime += sessionTime;
-    data.voiceJoinedAt = null;
-
-    if (data.voiceTime >= REWARDS.VOICE_TIME.amount) {
-      console.log(`[Voice] Usuario ${userId} alcanzó el tiempo requerido para recompensa`);
-      data.voiceTime = 0;
-      await reportCoins(userId, REWARDS.VOICE_TIME.coins);
+    if (!oldState.channel && newState.channel) {
+      await updateUserData(userId, { voiceJoinedAt: Date.now() });
     }
+
+    if (oldState.channel && !newState.channel && userData.voiceJoinedAt) {
+      const sessionTime = Date.now() - userData.voiceJoinedAt;
+      const newVoiceTime = (userData.voiceTime || 0) + sessionTime;
+
+      if (newVoiceTime >= REWARDS.VOICE_TIME.amount) {
+        await reportCoins(userId, REWARDS.VOICE_TIME.coins);
+        await updateUserData(userId, { voiceTime: 0, voiceJoinedAt: null });
+      } else {
+        await updateUserData(userId, { voiceTime: newVoiceTime, voiceJoinedAt: null });
+      }
+    }
+  } catch (error) {
+    console.error('[Voice-Error]', error);
   }
 });
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  const userId = message.author.id;
-  console.log(`[Message] Nuevo mensaje de usuario ${userId} en canal: ${message.channel.name}`);
-  
-  const data = initUserData(userId);
-  data.messages++;
-  
-  console.log(`[Message] Usuario ${userId} lleva ${data.messages} mensajes`);
+  try {
+    const userId = message.author.id;
+    const userData = await initUserData(userId);
+    const newMessageCount = (userData.messages || 0) + 1;
 
-  if (data.messages >= REWARDS.MESSAGES.amount) {
-    data.messages = 0;
-    const newBalance = await reportCoins(userId, REWARDS.MESSAGES.coins);
-    await message.channel.send(
-      `${getMensajeAleatorio('RECOMPENSA')} ${REWARDS.MESSAGES.coins} monedas del caos, ${message.author}!\nTu poder actual asciende a ${newBalance} monedas.`
-    );
-  }
+    if (REWARDS.FORUMS.allowedForums.includes(message.channel.id)) {
+      await reportCoins(userId, REWARDS.FORUMS.coins);
+    }
 
-  if (message.channel.name === 'debate') {
-    console.log(`[Debate] Usuario ${userId} recibe recompensa por mensaje en debate`);
-    const newBalance = await reportCoins(userId, REWARDS.DEBATE.coins);
-    await message.channel.send(
-      `${getMensajeAleatorio('RECOMPENSA')} ${REWARDS.DEBATE.coins} monedas del caos por tu sabiduría en el debate, ${message.author}!\nTu poder actual asciende a ${newBalance} monedas.`
-    );
+    if (newMessageCount >= REWARDS.MESSAGES.amount) {
+      await reportCoins(userId, REWARDS.MESSAGES.coins);
+      await updateUserData(userId, { messages: 0 });
+    } else {
+      await updateUserData(userId, { messages: newMessageCount });
+    }
+
+    if (message.channel.name === 'debate') {
+      await reportCoins(userId, REWARDS.DEBATE.coins);
+    }
+  } catch (error) {
+    console.error('[Message-Error]', error);
   }
 });
 
@@ -195,7 +231,6 @@ client.on('interactionCreate', async (interaction) => {
       }
       
       case 'dar-monedas': {
-        // Verificar permisos de administrador
         if (!interaction.member.permissions.has('ADMINISTRATOR')) {
           await interaction.reply({
             content: 'No tienes permisos para usar este comando.',
@@ -227,7 +262,7 @@ client.on('interactionCreate', async (interaction) => {
       case 'transferir-monedas': {
         const user = interaction.options.getUser('usuario');
         const amount = interaction.options.getInteger('cantidad');
-        const senderData = initUserData(interaction.user.id);
+        const senderData = await initUserData(interaction.user.id);
         
         if (!user || !amount) {
           await interaction.reply({
