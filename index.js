@@ -27,8 +27,7 @@ const client = new Client({
     IntentsBitField.Flags.GuildMessages,
     IntentsBitField.Flags.MessageContent,
     IntentsBitField.Flags.GuildVoiceStates,
-    IntentsBitField.Flags.GuildMembers,
-    IntentsBitField.Flags.GuildApplicationCommands  // Añadir este intent
+    IntentsBitField.Flags.GuildMembers
   ],
 });
 
@@ -41,6 +40,32 @@ const REWARDS = {
   LIBRARY: { coins: 1 },
   BIBLIOTECA: { coins: 2 }
 };
+
+const MENSAJES_CAOS = {
+  RECOMPENSA: [
+    "¡La entropía te favorece! Has sido bendecido con",
+    "El caos reconoce tu valor. Te otorga",
+    "¡Las fuerzas del desorden te premian con",
+    "¡La manifestación del caos toma forma de"
+  ],
+  ERROR: [
+    "El vacío ha consumido tu petición...",
+    "Las fuerzas del caos rechazan tu intento...",
+    "El cosmos se niega a cooperar con tus designios...",
+    "La entropía ha devorado tu solicitud..."
+  ],
+  SALDO: [
+    "Las fuerzas del caos te susurran que posees",
+    "Tu poder en el vacío se cuantifica en",
+    "El cosmos ha contabilizado tu influencia:",
+    "Tu dominio sobre el caos se mide en"
+  ]
+};
+
+function getMensajeAleatorio(tipo) {
+  const mensajes = MENSAJES_CAOS[tipo];
+  return mensajes[Math.floor(Math.random() * mensajes.length)];
+}
 
 function initUserData(userId) {
   console.log(`[initUserData] Inicializando datos para usuario: ${userId}`);
@@ -135,17 +160,19 @@ client.on('messageCreate', async (message) => {
   console.log(`[Message] Usuario ${userId} lleva ${data.messages} mensajes`);
 
   if (data.messages >= REWARDS.MESSAGES.amount) {
-    console.log(`[Message] Usuario ${userId} alcanzó ${REWARDS.MESSAGES.amount} mensajes`);
     data.messages = 0;
-    await reportCoins(userId, REWARDS.MESSAGES.coins);
+    const newBalance = await reportCoins(userId, REWARDS.MESSAGES.coins);
     await message.channel.send(
-      `¡Felicidades ${message.author}! Ganaste ${REWARDS.MESSAGES.coins} moneda(s).`
+      `${getMensajeAleatorio('RECOMPENSA')} ${REWARDS.MESSAGES.coins} monedas del caos, ${message.author}!\nTu poder actual asciende a ${newBalance} monedas.`
     );
   }
 
   if (message.channel.name === 'debate') {
     console.log(`[Debate] Usuario ${userId} recibe recompensa por mensaje en debate`);
-    await reportCoins(userId, REWARDS.DEBATE.coins);
+    const newBalance = await reportCoins(userId, REWARDS.DEBATE.coins);
+    await message.channel.send(
+      `${getMensajeAleatorio('RECOMPENSA')} ${REWARDS.DEBATE.coins} monedas del caos por tu sabiduría en el debate, ${message.author}!\nTu poder actual asciende a ${newBalance} monedas.`
+    );
   }
 });
 
@@ -161,7 +188,7 @@ client.on('interactionCreate', async (interaction) => {
       case 'saldo': {
         const balance = await getCoins(interaction.user.id);
         await interaction.reply({
-          content: `Tienes ${balance} monedas.`,
+          content: `${getMensajeAleatorio('SALDO')} ${balance} monedas del caos.`,
           ephemeral: true
         });
         break;
@@ -182,16 +209,16 @@ client.on('interactionCreate', async (interaction) => {
         
         if (!user || !amount) {
           await interaction.reply({
-            content: 'Usuario o cantidad inválidos.',
+            content: '¡Ah, mortal ingenuo! ¿Cómo pretendes manipular el caos sin especificar su destino y magnitud?',
             ephemeral: true
           });
           return;
         }
         
         console.log(`[Command-Dar] Admin ${interaction.user.id} dando ${amount} monedas a ${user.id}`);
-        await reportCoins(user.id, amount);
+        const newBalance = await reportCoins(user.id, amount);
         await interaction.reply({
-          content: `Se otorgaron ${amount} monedas a ${user}.`,
+          content: `El cosmos ha canalizado ${amount} monedas del caos hacia ${user}.\nSu nuevo poder asciende a ${newBalance} monedas.`,
           ephemeral: true
         });
         break;
@@ -212,17 +239,17 @@ client.on('interactionCreate', async (interaction) => {
         
         if (senderData.coins < amount) {
           await interaction.reply({
-            content: 'No tienes suficientes monedas.',
+            content: '¡Insensato! No puedes manipular el caos que no posees.',
             ephemeral: true
           });
           return;
         }
         
         console.log(`[Transfer] Usuario ${interaction.user.id} transfiriendo ${amount} monedas a ${user.id}`);
-        await reportCoins(interaction.user.id, -amount);
-        await reportCoins(user.id, amount);
+        const senderNewBalance = await reportCoins(interaction.user.id, -amount);
+        const receiverNewBalance = await reportCoins(user.id, amount);
         await interaction.reply({
-          content: `Has transferido ${amount} monedas a ${user}.`,
+          content: `Has canalizado ${amount} monedas del caos hacia ${user}.\nTu poder actual: ${senderNewBalance} monedas\nPoder de ${user}: ${receiverNewBalance} monedas`,
           ephemeral: true
         });
         break;
@@ -230,7 +257,7 @@ client.on('interactionCreate', async (interaction) => {
       
       default: {
         await interaction.reply({
-          content: 'Comando no reconocido.',
+          content: 'El caos no reconoce tu comando... Intenta algo más... caótico.',
           ephemeral: true
         });
       }
@@ -238,7 +265,7 @@ client.on('interactionCreate', async (interaction) => {
   } catch (error) {
     console.error('[ERROR]', error);
     await interaction.reply({
-      content: 'Hubo un error al procesar el comando.',
+      content: `${getMensajeAleatorio('ERROR')}`,
       ephemeral: true
     });
   }
