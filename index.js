@@ -169,7 +169,8 @@ async function reportCoins(userId, amount, reason) {
     });
     
     if (amount > 0) {
-      await notifyReward(userId, amount, reason);
+      const xpAmount = Number((amount / 2).toFixed(1));
+      await notifyReward(userId, amount, `${reason} (+ ${xpAmount} XP)`);
     }
     
     console.log('[reportCoins] Respuesta del backend:', response.data);
