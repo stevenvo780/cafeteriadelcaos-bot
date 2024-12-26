@@ -11,7 +11,7 @@ initializeApp({
     privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
   }),
-  databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`
+  databaseURL: "https://cafeteriadelcaos-a52d5-default-rtdb.firebaseio.com"
 });
 
 const db = getDatabase();
