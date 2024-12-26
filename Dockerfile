@@ -12,5 +12,8 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
+# Exponemos el puerto para el servidor HTTP
+EXPOSE 3005
+
 # Comando para ejecutar el bot
 CMD [ "node", "index.js" ]

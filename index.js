@@ -1,5 +1,24 @@
 require('dotenv').config();
+const express = require('express');
 const { Client, IntentsBitField, Collection } = require('discord.js');
+
+const app = express();
+const PORT = process.env.PORT || 3005;
+
+app.get('/', (req, res) => {
+  const status = {
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    userCount: userData.size,
+    botUsername: client?.user?.username || 'No conectado',
+    uptime: client?.uptime || 0,
+  };
+  res.json(status);
+});
+
+app.listen(PORT, () => {
+  console.log(`[Server] Servidor HTTP escuchando en puerto ${PORT}`);
+});
 
 const client = new Client({
   intents: [
@@ -47,6 +66,7 @@ async function updateCoins(userId, amount) {
 client.on('ready', () => {
   console.log(`[Bot] Iniciado correctamente como: ${client.user.tag}`);
   console.log(`[Bot] Configuración actual:`, REWARDS);
+  console.log(`[Server] Bot y servidor HTTP listos`);
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
