@@ -34,7 +34,7 @@ const client = new Client({
 const userData = new Collection();
 
 const REWARDS = {
-  MESSAGES: { amount: 3, coins: 1 },
+  MESSAGES: { amount: 80, coins: 1 },
   VOICE_TIME: { amount: 8 * 60 * 60 * 1000, coins: 1 },
   DEBATE: { coins: 3 },
   LIBRARY: { coins: 1 },
