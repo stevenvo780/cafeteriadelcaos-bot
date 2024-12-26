@@ -88,7 +88,7 @@ async function sendActivityReport(userId: string, coins: number, reason: string)
   }
 }
 
-export async function reportCoins(userId: string, amount: number, reason: string) {
+export async function reportCoins(userId: string, amount: number, reason: string = ""): Promise<number> {
   console.log(`[reportCoins] Reportando monedas al backend - Usuario: ${userId}, Cantidad: ${amount}`);
   try {
     const response = await axios.post(`${BACKEND_URL}/discord/coins/report`, {
