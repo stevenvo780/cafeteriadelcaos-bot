@@ -1,7 +1,7 @@
-FROM node:18-slim
+FROM node:18-alpine
 
 # Crear directorio de la aplicación
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # Copiar package.json y package-lock.json
 COPY package*.json ./
@@ -10,10 +10,13 @@ COPY package*.json ./
 RUN npm install
 
 # Copiar el código fuente
-COPY . .
+COPY . ./
+
+# Compilar TypeScript
+RUN npm run build
 
 # Exponemos el puerto para el servidor HTTP
 EXPOSE 3005
 
 # Comando para ejecutar el bot
-CMD [ "node", "index.js" ]
+CMD ["npm", "run", "start"]
