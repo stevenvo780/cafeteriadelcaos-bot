@@ -142,8 +142,21 @@ async function updateUserData(userId, updates) {
 }
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const REWARD_CHANNEL_ID = process.env.REWARD_CHANNEL_ID;
 
-async function reportCoins(userId, amount) {
+async function notifyReward(userId, amount, reason) {
+  if (!REWARD_CHANNEL_ID) return;
+  
+  const channel = client.channels.cache.get(REWARD_CHANNEL_ID);
+  if (!channel) return;
+  
+  const user = await client.users.fetch(userId);
+  const mensaje = `${getMensajeAleatorio('RECOMPENSA')} ${amount} monedas del caos para ${user} por ${reason}!`;
+  
+  await channel.send(mensaje);
+}
+
+async function reportCoins(userId, amount, reason) {
   console.log(`[reportCoins] Reportando monedas al backend - Usuario: ${userId}, Cantidad: ${amount}`);
   try {
     const response = await axios.post(`${BACKEND_URL}/discord/coins/report`, {
@@ -154,6 +167,11 @@ async function reportCoins(userId, amount) {
         'x-bot-api-key': process.env.BOT_SYNC_KEY
       }
     });
+    
+    if (amount > 0) {
+      await notifyReward(userId, amount, reason);
+    }
+    
     console.log('[reportCoins] Respuesta del backend:', response.data);
     return response.data.newBalance;
   } catch (error) {
@@ -196,7 +214,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       const newVoiceTime = (userData.voiceTime || 0) + sessionTime;
 
       if (newVoiceTime >= REWARDS.VOICE_TIME.amount) {
-        await reportCoins(userId, REWARDS.VOICE_TIME.coins);
+        await reportCoins(userId, REWARDS.VOICE_TIME.coins, "tiempo en canal de voz");
         await updateUserData(userId, { voiceTime: 0, voiceJoinedAt: null });
       } else {
         await updateUserData(userId, { voiceTime: newVoiceTime, voiceJoinedAt: null });
@@ -216,18 +234,18 @@ client.on('messageCreate', async (message) => {
     const newMessageCount = (userData.messages || 0) + 1;
 
     if (REWARDS.FORUMS.allowedForums.includes(message.channel.id)) {
-      await reportCoins(userId, REWARDS.FORUMS.coins);
+      await reportCoins(userId, REWARDS.FORUMS.coins, "participación en foros");
     }
 
     if (newMessageCount >= REWARDS.MESSAGES.amount) {
-      await reportCoins(userId, REWARDS.MESSAGES.coins);
+      await reportCoins(userId, REWARDS.MESSAGES.coins, "mensajes enviados");
       await updateUserData(userId, { messages: 0 });
     } else {
       await updateUserData(userId, { messages: newMessageCount });
     }
 
     if (message.channel.name === 'debate') {
-      await reportCoins(userId, REWARDS.DEBATE.coins);
+      await reportCoins(userId, REWARDS.DEBATE.coins, "participación en debate");
     }
   } catch (error) {
     console.error('[Message-Error]', error);
