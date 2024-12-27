@@ -100,8 +100,7 @@ export async function reportCoins(userId: string, amount: number, reason: string
     });
     
     if (amount > 0) {
-      const xpAmount = Number((amount / 2).toFixed(1));
-      await notifyReward(userId, amount, `${reason} (+ ${xpAmount} XP)`);
+      await notifyReward(userId, amount, `${reason} (+ ${amount} XP)`);
       await sendActivityReport(userId, amount, reason);
     }
     
