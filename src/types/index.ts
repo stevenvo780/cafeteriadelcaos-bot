@@ -1,8 +1,5 @@
-
 export interface UserData {
   messages: number;
-  coins: number;
-  points: number;
   voiceTime: number;
   voiceJoinedAt: number | null;
   lastUpdated: number;

@@ -38,8 +38,6 @@ export async function initUserData(userId: string): Promise<UserData> {
       console.log(`[Firebase] Usuario ${userId} no existe, creando nuevo registro`);
       const userData = {
         messages: 0,
-        coins: 0,
-        points: 0,
         voiceTime: 0,
         voiceJoinedAt: null,
         lastUpdated: Date.now()

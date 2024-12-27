@@ -68,7 +68,6 @@ async function sendActivityReport(userId: string, coins: number, reason: string)
     }
 
     const user = await client.users.fetch(userId);
-    const xpAmount = Number((coins / 2).toFixed(1));
 
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
@@ -76,7 +75,7 @@ async function sendActivityReport(userId: string, coins: number, reason: string)
       .setDescription(`${user.username} ha ganado recompensas`)
       .addFields(
         { name: 'Monedas', value: `${coins} 🪙`, inline: true },
-        { name: 'Experiencia', value: `${xpAmount} ⭐`, inline: true },
+        { name: 'Experiencia', value: `${coins} ⭐`, inline: true },
         { name: 'Razón', value: reason }
       )
       .setTimestamp();
