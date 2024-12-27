@@ -1,43 +1,29 @@
 import axios from 'axios';
 import { EmbedBuilder, TextChannel } from 'discord.js';
 import { getClient } from './discord';
+import { MENSAJES_CAOS } from '../config/constants';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 const REWARD_CHANNEL_ID = process.env.REWARD_CHANNEL_ID;
 
-async function sendActivityReport(userId: string, coins: number, reason: string) {
-  try {
-    if (!REWARD_CHANNEL_ID) {
-      console.log('[Report] No hay canal de reportes configurado');
-      return;
-    }
-
-    const client = getClient();
-    const channel = await client.channels.fetch(REWARD_CHANNEL_ID) as TextChannel;
-    if (!channel) {
-      console.error('[Report] No se pudo encontrar el canal de reportes');
-      return;
-    }
-
-    const user = await client.users.fetch(userId);
-
-    const embed = new EmbedBuilder()
-      .setColor('#0099ff')
-      .setTitle('¡Nueva Actividad!')
-      .setDescription(`${user.username} ha ganado recompensas`)
-      .addFields(
-        { name: 'Monedas', value: `${coins} 🪙`, inline: true },
-        { name: 'Experiencia', value: `${coins} ⭐`, inline: true },
-        { name: 'Razón', value: reason }
-      )
-      .setTimestamp();
-
-    await channel.send({ embeds: [embed] });
-    console.log(`[Report] Reporte enviado para ${user.username}`);
-  } catch (error) {
-    console.error('[Report-Error] Error enviando reporte:', error);
-  }
+function getMensajeAleatorio(tipo: keyof typeof MENSAJES_CAOS): string {
+  const mensajes = MENSAJES_CAOS[tipo];
+  return mensajes[Math.floor(Math.random() * mensajes.length)];
 }
+
+async function notifyReward(userId: string, amount: number, reason: string) {
+  if (!REWARD_CHANNEL_ID) return;
+  
+  const client = getClient();
+  const channel = client.channels.cache.get(REWARD_CHANNEL_ID) as TextChannel;
+  if (!channel) return;
+  
+  const user = await client.users.fetch(userId);
+  const mensaje = `${getMensajeAleatorio('RECOMPENSA')} ${amount} monedas del caos para ${user} por ${reason}!`;
+  
+  await channel.send(mensaje);
+}
+
 
 export async function reportCoins(userId: string, amount: number, reason: string = ""): Promise<number> {
   console.log(`[reportCoins] Reportando monedas al backend - Usuario: ${userId}, Cantidad: ${amount}`);
@@ -52,7 +38,7 @@ export async function reportCoins(userId: string, amount: number, reason: string
     });
     
     if (amount > 0) {
-      await sendActivityReport(userId, amount, reason);
+      await notifyReward(userId, amount, `${reason} (+ ${amount} XP)`);
     }
     
     console.log('[reportCoins] Respuesta del backend:', response.data);
