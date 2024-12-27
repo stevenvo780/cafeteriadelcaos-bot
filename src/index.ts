@@ -7,19 +7,28 @@ config();
 const app = express();
 const PORT = process.env.PORT || 3005;
 let server: any;
+let isShuttingDown = false;
+
+app.use((req, res, next) => {
+  if (isShuttingDown) {
+    res.set('Connection', 'close');
+    res.status(503).send('Server is shutting down');
+  } else {
+    next();
+  }
+});
 
 async function shutdown() {
-  console.log('[Server] Iniciando apagado graceful...');
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   
   if (server) {
     await new Promise((resolve) => {
       server.close(resolve);
     });
-    console.log('[Server] Servidor HTTP detenido');
   }
 
   await shutdownDiscord();
-  console.log('[Server] Proceso terminado correctamente');
   process.exit(0);
 }
 
@@ -28,6 +37,9 @@ process.on('SIGINT', shutdown);
 process.on('uncaughtException', (error) => {
   console.error('[Error] Excepción no capturada:', error);
   shutdown();
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Error] Promesa rechazada no manejada:', reason);
 });
 
 app.get('/health', (req, res) => {
@@ -52,7 +64,6 @@ app.get('/', async (req, res) => {
     };
     res.json(status);
   } catch (error) {
-    console.error('[Server-Error] Error al obtener estado:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -60,13 +71,20 @@ app.get('/', async (req, res) => {
 async function startServer() {
   try {
     await initDiscord();
-    console.log('[Bot] Discord inicializado correctamente');
+    server = app.listen(PORT, () => {});
 
-    server = app.listen(PORT, () => {
-      console.log(`[Server] Servidor HTTP escuchando en puerto ${PORT}`);
-    });
+    setInterval(() => {
+      const client = getClient();
+      if (!client.isReady()) {
+        initDiscord().catch(console.error);
+      }
+    }, 5 * 60 * 1000);
+
+    setInterval(() => {
+      fetch(`https://cafeteriadelcaos-bot.onrender.com/health`).catch(() => {});
+    }, 14 * 60 * 1000);
+
   } catch (error) {
-    console.error('[Startup-Error] Error iniciando servicios:', error);
     process.exit(1);
   }
 }
