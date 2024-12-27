@@ -5,41 +5,6 @@ import { getClient } from './discord';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 const REWARD_CHANNEL_ID = process.env.REWARD_CHANNEL_ID;
 
-const REWARDS = {
-  MESSAGES: { amount: 90, coins: 1 },
-  VOICE_TIME: { amount: 8 * 60 * 60 * 1000, coins: 1 },
-  FORUMS: {
-    coins: 1,
-    allowedForums: (process.env.REWARD_CHANNELS || '').split(',').filter(Boolean)
-  }
-};
-
-const MENSAJES_CAOS = {
-  RECOMPENSA: [
-    "¡La entropía te favorece! Has sido bendecido con",
-    "El caos reconoce tu valor. Te otorga",
-    "¡Las fuerzas del desorden te premian con",
-    "¡La manifestación del caos toma forma de"
-  ],
-  ERROR: [
-    "El vacío ha consumido tu petición...",
-    "Las fuerzas del caos rechazan tu intento...",
-    "El cosmos se niega a cooperar con tus designios...",
-    "La entropía ha devorado tu solicitud..."
-  ],
-  SALDO: [
-    "Las fuerzas del caos te susurran que posees",
-    "Tu poder en el vacío se cuantifica en",
-    "El cosmos ha contabilizado tu influencia:",
-    "Tu dominio sobre el caos se mide en"
-  ]
-};
-
-function getMensajeAleatorio(tipo: keyof typeof MENSAJES_CAOS): string {
-  const mensajes = MENSAJES_CAOS[tipo];
-  return mensajes[Math.floor(Math.random() * mensajes.length)];
-}
-
 async function sendActivityReport(userId: string, coins: number, reason: string) {
   try {
     if (!REWARD_CHANNEL_ID) {
