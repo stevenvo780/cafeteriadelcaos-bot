@@ -28,7 +28,6 @@ export async function initDiscord() {
   try {
     await client.login(process.env.DISCORD_BOT_TOKEN);
     
-    // Agregar manejador de errores del cliente
     client.on('error', (error) => {
       console.error('[Discord-Error] Error en el cliente:', error);
     });

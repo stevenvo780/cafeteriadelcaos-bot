@@ -40,28 +40,15 @@ function getMensajeAleatorio(tipo: keyof typeof MENSAJES_CAOS): string {
   return mensajes[Math.floor(Math.random() * mensajes.length)];
 }
 
-async function notifyReward(userId: string, amount: number, reason: string) {
-  if (!REWARD_CHANNEL_ID) return;
-  
-  const client = getClient();
-  const channel = client.channels.cache.get(REWARD_CHANNEL_ID) as TextChannel;
-  if (!channel) return;
-  
-  const user = await client.users.fetch(userId);
-  const mensaje = `${getMensajeAleatorio('RECOMPENSA')} ${amount} monedas del caos para ${user} por ${reason}!`;
-  
-  await channel.send(mensaje);
-}
-
 async function sendActivityReport(userId: string, coins: number, reason: string) {
   try {
-    if (!process.env.REPORT_CHANNEL_ID) {
+    if (!REWARD_CHANNEL_ID) {
       console.log('[Report] No hay canal de reportes configurado');
       return;
     }
 
     const client = getClient();
-    const channel = await client.channels.fetch(process.env.REPORT_CHANNEL_ID!) as TextChannel;
+    const channel = await client.channels.fetch(REWARD_CHANNEL_ID) as TextChannel;
     if (!channel) {
       console.error('[Report] No se pudo encontrar el canal de reportes');
       return;
@@ -100,7 +87,6 @@ export async function reportCoins(userId: string, amount: number, reason: string
     });
     
     if (amount > 0) {
-      await notifyReward(userId, amount, `${reason} (+ ${amount} XP)`);
       await sendActivityReport(userId, amount, reason);
     }
     
