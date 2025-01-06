@@ -3,6 +3,7 @@ export interface UserData {
   voiceTime: number;
   voiceJoinedAt: number | null;
   lastUpdated: number;
+  lastRewardTime?: number;
 }
 
 export interface RewardConfig {

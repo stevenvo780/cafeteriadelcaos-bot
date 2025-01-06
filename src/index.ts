@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 let server: any;
 let isShuttingDown = false;
+let discordInitialized = false;
 
 app.use((req, res, next) => {
   if (isShuttingDown) {
@@ -70,13 +71,17 @@ app.get('/', async (req, res) => {
 
 async function startServer() {
   try {
-    await initDiscord();
+    if (!discordInitialized) {
+      await initDiscord();
+      discordInitialized = true;
+    }
     server = app.listen(PORT, () => {});
 
     setInterval(() => {
       const client = getClient();
-      if (!client.isReady()) {
+      if (!client.isReady() && !discordInitialized) {
         initDiscord().catch(console.error);
+        discordInitialized = true;
       }
     }, 5 * 60 * 1000);
 

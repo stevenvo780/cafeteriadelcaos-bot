@@ -40,7 +40,8 @@ export async function initUserData(userId: string): Promise<UserData> {
         messages: 0,
         voiceTime: 0,
         voiceJoinedAt: null,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        lastRewardTime: 0
       };
       await usersRef.child(userId).set(userData);
       console.log(`[Firebase] Usuario creado exitosamente:`, userData);
