@@ -70,6 +70,9 @@ app.get('/', async (req, res) => {
 });
 
 async function startServer() {
+  if (!process.env.REWARD_CHANNEL_ID) {
+    console.warn('[Bot] REWARD_CHANNEL_ID no está configurado.');
+  }
   try {
     if (!discordInitialized) {
       await initDiscord();

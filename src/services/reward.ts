@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { TextChannel } from 'discord.js'
+import { TextChannel, ChannelType } from 'discord.js'
 import { getClient } from './discord'
 import { MENSAJES_CAOS } from '../config/constants'
 import { initUserData, updateUserData } from './firebase'
@@ -18,12 +18,14 @@ async function notifyReward(userId: string, amount: number, reason: string) {
   
   try {
     const client = getClient();
-    const channel = client.channels.cache.get(REWARD_CHANNEL_ID) as TextChannel;
-    if (!channel) throw new Error('Canal de recompensas no encontrado');
-    
+    const channel = await client.channels.fetch(REWARD_CHANNEL_ID);
+    if (!channel || channel.type !== ChannelType.GuildText) {
+      throw new Error('Canal de recompensas no encontrado o no es de texto');
+    }
+    const textChannel = channel as TextChannel;
     const user = await client.users.fetch(userId);
     const mensaje = `${formatMessage('RECOMPENSA', amount)} (${reason})`;
-    await channel.send(mensaje);
+    await textChannel.send(mensaje);
   } catch (error) {
     console.error('[Reward] Error al notificar recompensa:', error);
   }
