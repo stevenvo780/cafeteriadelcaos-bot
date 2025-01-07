@@ -9,8 +9,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
 const REWARD_CHANNEL_ID = process.env.REWARD_CHANNEL_ID
 const MINIMUM_REWARD_INTERVAL_MS = 1000;
 
-function formatMessage(tipo: MensajeTipo, coins: number): string {
-  return MENSAJES_CAOS[tipo].replace('{coins}', coins.toString());
+function formatMessage(tipo: MensajeTipo, userId: string, coins: number): string {
+  let mensaje = MENSAJES_CAOS[tipo];
+  return mensaje
+    .replace('{user}', `<@${userId}>`)
+    .replace('{coins}', coins.toString());
 }
 
 async function notifyReward(userId: string, amount: number, reason: string) {
@@ -23,9 +26,11 @@ async function notifyReward(userId: string, amount: number, reason: string) {
       throw new Error('Canal de recompensas no encontrado o no es de texto');
     }
     const textChannel = channel as TextChannel;
-    const user = await client.users.fetch(userId);
-    const mensaje = `${formatMessage('RECOMPENSA', amount)} (${reason})`;
-    await textChannel.send(mensaje);
+    const mensaje = `${formatMessage('RECOMPENSA', userId, amount)} (${reason})`;
+    await textChannel.send({
+      content: mensaje,
+      allowedMentions: { users: [userId] }
+    });
   } catch (error) {
     console.error('[Reward] Error al notificar recompensa:', error);
   }

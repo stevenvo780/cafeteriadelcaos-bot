@@ -15,7 +15,7 @@ export const REWARDS = {
 } as const;
 
 export const MENSAJES_CAOS = {
-  RECOMPENSA: "¡Has ganado {coins} monedas del caos! 🎉",
-  ERROR: "¡Ups! Algo salió mal... 😅",
-  SALDO: "💰 Tienes {coins} monedas del caos"
+  RECOMPENSA: "{user} ¡Has ganado {coins} monedas del caos! 🎉",
+  ERROR: "{user} ¡Ups! Algo salió mal... 😅",
+  SALDO: "{user} 💰 Tienes {coins} monedas del caos"
 } as const;
