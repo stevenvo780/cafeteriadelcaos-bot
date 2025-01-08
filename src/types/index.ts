@@ -14,3 +14,16 @@ export interface RewardConfig {
   allowedChannels?: string[];
   allowedForums?: string[];
 }
+
+export interface DiscordClientStatus {
+  status: 'healthy' | 'unhealthy';
+  users?: number;
+  uptime?: number;
+  ping?: number;
+  error?: string;
+}
+
+export interface UserReward {
+  id: string;
+  username: string;
+}

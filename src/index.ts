@@ -43,12 +43,29 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[Error] Promesa rechazada no manejada:', reason);
 });
 
-app.get('/health', (req, res) => {
-  const client = getClient();
-  if (client.isReady()) {
-    res.status(200).json({ status: 'healthy' });
-  } else {
-    res.status(503).json({ status: 'unhealthy' });
+app.get('/health', async (req, res) => {
+  try {
+    const client = getClient();
+    const userCount = await getUserCount();
+    
+    if (client.isReady()) {
+      res.status(200).json({ 
+        status: 'healthy',
+        users: userCount,
+        uptime: client.uptime,
+        ping: client.ws.ping
+      });
+    } else {
+      res.status(503).json({ 
+        status: 'unhealthy',
+        error: 'Discord client not ready'
+      });
+    }
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'unhealthy',
+      error: 'Service check failed'
+    });
   }
 });
 
@@ -88,8 +105,15 @@ async function startServer() {
       }
     }, 5 * 60 * 1000);
 
-    setInterval(() => {
-      fetch(`https://cafeteriadelcaos-bot.onrender.com/health`).catch(() => {});
+    setInterval(async () => {
+      try {
+        const response = await fetch(`https://cafeteriadelcaos-bot.onrender.com/health`);
+        if (!response.ok) {
+          console.warn('[Health] El health check falló:', response.status);
+        }
+      } catch (error) {
+        console.error('[Health] Error en el health check:', error);
+      }
     }, 14 * 60 * 1000);
 
   } catch (error) {

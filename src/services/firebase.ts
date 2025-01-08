@@ -25,6 +25,23 @@ db.ref('.info/connected').on('value', (snapshot) => {
   }
 });
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+
+async function retryOperation<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError;
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      console.warn(`[Firebase] Retry ${i + 1}/${MAX_RETRIES} failed`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (i + 1)));
+    }
+  }
+  throw lastError;
+}
+
 export async function getUserCount(): Promise<number> {
   const snapshot = await usersRef.once('value');
   return snapshot.numChildren();
@@ -56,14 +73,16 @@ export async function initUserData(userId: string): Promise<UserData> {
 }
 
 export async function updateUserData(userId: string, updates: Partial<UserData>): Promise<void> {
-  try {
-    await usersRef.child(userId).update({
-      ...updates,
-      lastUpdated: Date.now()
-    });
-    console.error(`[DB-Write] Usuario actualizado: ${userId}`);
-  } catch (error) {
-    console.error('[DB-Error] Error actualizando usuario:', error);
-    throw error;
-  }
+  return retryOperation(async () => {
+    try {
+      await usersRef.child(userId).update({
+        ...updates,
+        lastUpdated: Date.now()
+      });
+      console.log(`[DB-Write] Usuario actualizado: ${userId}`);
+    } catch (error) {
+      console.error('[DB-Error] Error actualizando usuario:', error);
+      throw error;
+    }
+  });
 }

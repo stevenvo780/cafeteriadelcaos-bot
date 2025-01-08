@@ -10,12 +10,7 @@ const client = new Client({
     IntentsBitField.Flags.MessageContent,
     IntentsBitField.Flags.GuildVoiceStates,
     IntentsBitField.Flags.GuildMembers,
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildModeration,
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildModeration
   ]
 })
 
@@ -66,9 +61,22 @@ export async function initDiscord() {
         console.error('[Voice-Error]', error)
       }
     })
+
+    const messageRateLimit = new Map<string, number>();
+    const RATE_LIMIT_WINDOW = 60000;
+
     client.on('messageCreate', async (message) => {
       if (message.author.bot) return
+      
       try {
+        const now = Date.now();
+        const lastMessage = messageRateLimit.get(message.author.id) || 0;
+        
+        if (now - lastMessage < 1000) {
+          return;
+        }
+        messageRateLimit.set(message.author.id, now);
+
         const userId = message.author.id
         const username = message.author.username
         const userData = await initUserData(userId)
@@ -92,29 +100,35 @@ export async function initDiscord() {
         console.error('[Message-Error]', error)
       }
     })
-    client.on('threadCreate', async (thread) => {
-      try {
-        console.log('[Thread] Nuevo hilo creado:', {
-          threadId: thread.id,
-          parentId: thread.parentId,
-          ownerId: thread.ownerId,
-          name: thread.name
-        });
 
-        if (!thread.parentId || !thread.ownerId) {
+    setInterval(() => {
+      const now = Date.now();
+      for (const [userId, timestamp] of messageRateLimit.entries()) {
+        if (now - timestamp > RATE_LIMIT_WINDOW) {
+          messageRateLimit.delete(userId);
+        }
+      }
+    }, RATE_LIMIT_WINDOW);
+
+    client.on('threadCreate', async (thread: ThreadChannel) => {
+      try {
+        if (!thread.parentId || !thread.ownerId || !thread.isThread()) {
           console.log('[Thread] No es un hilo válido');
           return;
         }
 
         if (!REWARDS.FORUMS.allowedForums.includes(thread.parentId)) {
-          console.log('[Thread] Foro no permitido:', thread.parentId);
-          console.log('[Thread] Foros permitidos:', REWARDS.FORUMS.allowedForums);
+          console.log('[Thread] Foro no permitido:', {
+            threadId: thread.id,
+            parentId: thread.parentId,
+            allowedForums: REWARDS.FORUMS.allowedForums
+          });
           return;
         }
 
         const user = await client.users.fetch(thread.ownerId);
-        if (user.bot) {
-          console.log('[Thread] El creador es un bot, ignorando');
+        if (!user || user.bot) {
+          console.log('[Thread] Usuario no válido o es un bot');
           return;
         }
 
