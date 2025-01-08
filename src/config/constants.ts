@@ -1,6 +1,6 @@
 export const REWARDS = {
   MESSAGES: {
-    amount: 90,
+    amount: 3,
     coins: 1,
     allowedChannels: (process.env.MESSAGE_REWARD_CHANNELS || '').split(',').filter(Boolean)
   },

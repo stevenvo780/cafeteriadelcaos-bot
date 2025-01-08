@@ -1,7 +1,7 @@
-import { Client, IntentsBitField, ChannelType } from 'discord.js'
+import { Client, IntentsBitField, ChannelType, GatewayIntentBits, ThreadChannel } from 'discord.js'
 import { initUserData, updateUserData } from './firebase'
 import { reportCoins } from './reward'
-import { REWARDS } from '../config/constants'
+import { REWARDS, MENSAJES_CAOS } from '../config/constants'
 
 const client = new Client({
   intents: [
@@ -9,7 +9,13 @@ const client = new Client({
     IntentsBitField.Flags.GuildMessages,
     IntentsBitField.Flags.MessageContent,
     IntentsBitField.Flags.GuildVoiceStates,
-    IntentsBitField.Flags.GuildMembers
+    IntentsBitField.Flags.GuildMembers,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
   ]
 })
 
@@ -88,17 +94,45 @@ export async function initDiscord() {
     })
     client.on('threadCreate', async (thread) => {
       try {
-        const parentChannelId = thread.parent?.id
-        if (!parentChannelId) return
-        if (REWARDS.FORUMS.allowedForums.includes(parentChannelId)) {
-          const userId = thread.ownerId
-          if (!userId) return
-          const user = await client.users.fetch(userId)
-          if (!user || user.bot) return
-          await reportCoins({ id: userId, username: user.username }, REWARDS.FORUMS.coins, 'creación de hilo en foro')
+        console.log('[Thread] Nuevo hilo creado:', {
+          threadId: thread.id,
+          parentId: thread.parentId,
+          ownerId: thread.ownerId,
+          name: thread.name
+        });
+
+        if (!thread.parentId || !thread.ownerId) {
+          console.log('[Thread] No es un hilo válido');
+          return;
         }
+
+        if (!REWARDS.FORUMS.allowedForums.includes(thread.parentId)) {
+          console.log('[Thread] Foro no permitido:', thread.parentId);
+          console.log('[Thread] Foros permitidos:', REWARDS.FORUMS.allowedForums);
+          return;
+        }
+
+        const user = await client.users.fetch(thread.ownerId);
+        if (user.bot) {
+          console.log('[Thread] El creador es un bot, ignorando');
+          return;
+        }
+
+        await reportCoins(
+          { id: thread.ownerId, username: user.username },
+          REWARDS.FORUMS.coins,
+          'crear nuevo tema en foro'
+        );
+
+        const rewardMessage = MENSAJES_CAOS.RECOMPENSA
+          .replace('{user}', `<@${thread.ownerId}>`)
+          .replace('{coins}', REWARDS.FORUMS.coins.toString());
+
+        await thread.send(rewardMessage);
+        console.log('[Thread] Recompensa entregada a:', thread.ownerId);
+
       } catch (error) {
-        console.error('[Thread-Error]', error)
+        console.error('[Thread-Error] Error procesando hilo:', error);
       }
     })
   } catch (error) {
