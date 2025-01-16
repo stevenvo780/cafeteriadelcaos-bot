@@ -2,6 +2,7 @@ import { Client, IntentsBitField, ChannelType, GatewayIntentBits, ThreadChannel 
 import { initUserData, updateUserData } from './firebase'
 import { reportCoins } from './reward'
 import { REWARDS, MENSAJES_CAOS } from '../config/constants'
+import { handleVoiceStateUpdate } from '../handlers/voiceStateHandler';
 
 const client = new Client({
   intents: [
@@ -36,31 +37,7 @@ export async function initDiscord() {
       console.log(`[Bot] Configuración actual:`, REWARDS)
       console.log(`[Server] Bot y servidor HTTP listos`)
     })
-    client.on('voiceStateUpdate', async (oldState, newState) => {
-      try {
-        const userId = newState.member?.id
-        const userObj = newState.member?.user
-        if (!userId || !userObj || userObj.bot) return
-        const username = newState.member?.user?.username
-        if (!userId || !username) return
-        const userData = await initUserData(userId)
-        if (!oldState.channel && newState.channel) {
-          await updateUserData(userId, { voiceJoinedAt: Date.now() })
-        }
-        if (oldState.channel && !newState.channel && userData.voiceJoinedAt) {
-          const sessionTime = Date.now() - userData.voiceJoinedAt
-          const newVoiceTime = (userData.voiceTime || 0) + sessionTime
-          if (newVoiceTime >= REWARDS.VOICE_TIME.amount) {
-            await reportCoins({ id: userId, username }, REWARDS.VOICE_TIME.coins, 'tiempo en canal de voz')
-            await updateUserData(userId, { voiceTime: 0, voiceJoinedAt: null })
-          } else {
-            await updateUserData(userId, { voiceTime: newVoiceTime, voiceJoinedAt: null })
-          }
-        }
-      } catch (error) {
-        console.error('[Voice-Error]', error)
-      }
-    })
+    client.on('voiceStateUpdate', handleVoiceStateUpdate);
 
     const messageRateLimit = new Map<string, number>();
     const RATE_LIMIT_WINDOW = 60000;

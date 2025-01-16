@@ -6,7 +6,7 @@ export interface UserData {
   lastRewardTime: number;
 }
 
-export type MensajeTipo = 'RECOMPENSA' | 'ERROR' | 'SALDO';
+export type MensajeTipo = 'RECOMPENSA' | 'ERROR';
 
 export interface RewardConfig {
   amount: number;
@@ -26,4 +26,30 @@ export interface DiscordClientStatus {
 export interface UserReward {
   id: string;
   username: string;
+}
+
+export interface BotConfig {
+  rewards: {
+    messages: {
+      amount: number;
+      coins: number;
+      allowedChannels: string[];
+    };
+    voiceTime: {
+      minutes: number; // Tiempo en minutos para ganar recompensa
+      coins: number;
+    };
+    forums: {
+      coins: number;
+      allowedForums: string[];
+    };
+  };
+  channels: {
+    rewardChannelId: string;
+  };
+  messages: {
+    recompensa: string;
+    error: string;
+    saldo: string;
+  };
 }

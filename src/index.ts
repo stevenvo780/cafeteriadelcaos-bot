@@ -1,7 +1,8 @@
 import express from 'express';
 import { config } from 'dotenv';
 import { initDiscord, getClient, shutdownDiscord } from './services/discord';
-import { getUserCount } from './services/firebase';
+import { getUserCount, initializeConfig, initUserData } from './services/firebase';
+import { checkVoiceReward } from './services/reward';
 
 config();
 const app = express();
@@ -91,6 +92,9 @@ async function startServer() {
     console.warn('[Bot] REWARD_CHANNEL_ID no está configurado.');
   }
   try {
+    // Inicializar configuración antes que Discord
+    await initializeConfig();
+    
     if (!discordInitialized) {
       await initDiscord();
       discordInitialized = true;
@@ -116,7 +120,37 @@ async function startServer() {
       }
     }, 14 * 60 * 1000);
 
+    // Verificar recompensas de voz cada 5 minutos
+    setInterval(async () => {
+      try {
+        const client = getClient();
+        if (!client.isReady()) return;
+
+        const guilds = client.guilds.cache;
+        for (const [, guild] of guilds) {
+          const voiceStates = guild.voiceStates.cache;
+          
+          for (const [userId, state] of voiceStates) {
+            if (state.channelId) {
+              const member = await guild.members.fetch(userId);
+              const userData = await initUserData(userId);
+              
+              if (userData.voiceJoinedAt) {
+                await checkVoiceReward(userData, {
+                  id: userId,
+                  username: member.user.username
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[VoiceReward] Error checking voice rewards:', error);
+      }
+    }, 5 * 60 * 1000); // Cada 5 minutos
+
   } catch (error) {
+    console.error('Error iniciando servidor:', error);
     process.exit(1);
   }
 }

@@ -1,7 +1,7 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { config } from 'dotenv';
-import { UserData } from '../types';
+import { BotConfig, UserData } from '../types';
 
 config();
 
@@ -85,4 +85,67 @@ export async function updateUserData(userId: string, updates: Partial<UserData>)
       throw error;
     }
   });
+}
+
+// Sistema de caché global
+let cachedConfig: BotConfig | null = null;
+const configRef = db.ref('config');
+
+export function getCachedConfig(): BotConfig {
+  if (!cachedConfig) {
+    throw new Error('Configuración no inicializada');
+  }
+  return cachedConfig;
+}
+
+export async function initializeConfig(): Promise<void> {
+  const snapshot = await configRef.get();
+  if (!snapshot.exists()) {
+    const defaultConfig: BotConfig = {
+      rewards: {
+        messages: {
+          amount: 90,
+          coins: 1,
+          allowedChannels: []
+        },
+        voiceTime: {
+          minutes: 480, // 8 horas en minutos
+          coins: 1
+        },
+        forums: {
+          coins: 1,
+          allowedForums: []
+        }
+      },
+      channels: {
+        rewardChannelId: process.env.REWARD_CHANNEL_ID || ''
+      },
+      messages: {
+        recompensa: "{user} ¡Has ganado {coins} monedas del caos! 🎉",
+        error: "{user} ¡Ups! Algo salió mal... 😅",
+        saldo: "{user} 💰 Tienes {coins} monedas del caos"
+      }
+    };
+    
+    await configRef.set(defaultConfig);
+    cachedConfig = defaultConfig;
+  } else {
+    cachedConfig = snapshot.val();
+  }
+
+  // Escuchar cambios
+  configRef.on('value', (snapshot) => {
+    cachedConfig = snapshot.val();
+    console.log('[Firebase] Configuración actualizada');
+  });
+}
+
+// Utilidad para convertir ms a minutos
+export function msToMinutes(ms: number): number {
+  return Math.floor(ms / (60 * 1000));
+}
+
+// Utilidad para convertir minutos a ms
+export function minutesToMs(minutes: number): number {
+  return minutes * 60 * 1000;
 }
