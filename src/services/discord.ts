@@ -60,7 +60,7 @@ export async function initDiscord() {
         const newMessageCount = (userData.messages || 0) + 1
         const channelType = (message.channel as any).type
         const config = getCachedConfig();
-        const isNormalChannel = config.rewards.messages.allowedChannels.includes(message.channel.id)
+        const isNormalChannel = config.rewards.messages.allowedChannels?.includes(message.channel.id) || false;
         if (isNormalChannel) {
           await reportCoins({ id: userId, username }, config.rewards.messages.coins, 'mensajes enviados en canal normal')
         }
