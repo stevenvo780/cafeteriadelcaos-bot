@@ -16,6 +16,8 @@ initializeApp({
 
 const db = getDatabase();
 const usersRef = db.ref('users');
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
 
 db.ref('.info/connected').on('value', (snapshot) => {
   if (snapshot.val() === true) {
@@ -24,9 +26,6 @@ db.ref('.info/connected').on('value', (snapshot) => {
     console.log('[Firebase] Desconectado de Firebase');
   }
 });
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000;
 
 async function retryOperation<T>(operation: () => Promise<T>): Promise<T> {
   let lastError;
@@ -87,9 +86,8 @@ export async function updateUserData(userId: string, updates: Partial<UserData>)
   });
 }
 
-// Sistema de caché global
-let cachedConfig: BotConfig | null = null;
 const configRef = db.ref('config');
+let cachedConfig: BotConfig | null = null;
 
 export function getCachedConfig(): BotConfig {
   if (!cachedConfig) {
@@ -106,46 +104,49 @@ export async function initializeConfig(): Promise<void> {
         messages: {
           amount: 90,
           coins: 1,
-          allowedChannels: []
+          allowedChannels: [
+            '123456789012345678',
+            '123456789012345678'
+          ]
         },
         voiceTime: {
-          minutes: 480, // 8 horas en minutos
+          minutes: 480,
           coins: 1
         },
         forums: {
           coins: 1,
-          allowedForums: []
+          allowedForums: [
+            '123456789012345678',
+            '123456789012345678'
+          ]
         }
       },
       channels: {
-        rewardChannelId: process.env.REWARD_CHANNEL_ID || ''
+        rewardChannelId: '123456789012345678'
       },
       messages: {
         recompensa: "{user} ¡Has ganado {coins} monedas del caos! 🎉",
         error: "{user} ¡Ups! Algo salió mal... 😅",
-        saldo: "{user} 💰 Tienes {coins} monedas del caos"
       }
     };
-    
+
     await configRef.set(defaultConfig);
     cachedConfig = defaultConfig;
   } else {
     cachedConfig = snapshot.val();
   }
 
-  // Escuchar cambios
   configRef.on('value', (snapshot) => {
-    cachedConfig = snapshot.val();
-    console.log('[Firebase] Configuración actualizada');
+    const newConfig = snapshot.val();
+    console.log('[Firebase] Configuración actualizada:', JSON.stringify(newConfig, null, 2));
+    cachedConfig = newConfig;
   });
 }
 
-// Utilidad para convertir ms a minutos
 export function msToMinutes(ms: number): number {
   return Math.floor(ms / (60 * 1000));
 }
 
-// Utilidad para convertir minutos a ms
 export function minutesToMs(minutes: number): number {
   return minutes * 60 * 1000;
 }

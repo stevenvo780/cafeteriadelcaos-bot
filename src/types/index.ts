@@ -36,7 +36,7 @@ export interface BotConfig {
       allowedChannels: string[];
     };
     voiceTime: {
-      minutes: number; // Tiempo en minutos para ganar recompensa
+      minutes: number;
       coins: number;
     };
     forums: {
@@ -50,6 +50,5 @@ export interface BotConfig {
   messages: {
     recompensa: string;
     error: string;
-    saldo: string;
   };
 }

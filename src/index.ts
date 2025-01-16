@@ -92,7 +92,6 @@ async function startServer() {
     console.warn('[Bot] REWARD_CHANNEL_ID no está configurado.');
   }
   try {
-    // Inicializar configuración antes que Discord
     await initializeConfig();
     
     if (!discordInitialized) {
@@ -120,7 +119,6 @@ async function startServer() {
       }
     }, 14 * 60 * 1000);
 
-    // Verificar recompensas de voz cada 5 minutos
     setInterval(async () => {
       try {
         const client = getClient();
@@ -147,7 +145,7 @@ async function startServer() {
       } catch (error) {
         console.error('[VoiceReward] Error checking voice rewards:', error);
       }
-    }, 5 * 60 * 1000); // Cada 5 minutos
+    }, 5 * 60 * 1000);
 
   } catch (error) {
     console.error('Error iniciando servidor:', error);

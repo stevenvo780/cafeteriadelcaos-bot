@@ -102,10 +102,17 @@ export async function getCoins(userId: string): Promise<number> {
 async function processVoiceTimeReward(userId: string, timeInMs: number): Promise<number> {
   const config = getCachedConfig();
   const timeInMinutes = msToMinutes(timeInMs);
-  const rewardMinutes = config.rewards.voiceTime.minutes;
   
-  if (timeInMinutes >= rewardMinutes) {
+  if (timeInMinutes >= config.rewards.voiceTime.minutes) {
     const rewardCoins = config.rewards.voiceTime.coins;
+    const remainingMinutes = timeInMinutes % config.rewards.voiceTime.minutes;
+    const remainingMs = minutesToMs(remainingMinutes);
+    
+    // Actualizar el tiempo restante
+    await updateUserData(userId, { 
+      voiceTime: remainingMs
+    });
+    
     return rewardCoins;
   }
   
@@ -115,15 +122,11 @@ async function processVoiceTimeReward(userId: string, timeInMs: number): Promise
 export async function checkVoiceReward(userData: UserData, user: { id: string, username: string }): Promise<void> {
   if (!userData.voiceJoinedAt) return;
   
-  const timeSpent = Date.now() - userData.voiceJoinedAt;
-  const rewardCoins = await processVoiceTimeReward(user.id, timeSpent);
+  const currentSessionTime = Date.now() - userData.voiceJoinedAt;
+  const totalTime = currentSessionTime + (userData.voiceTime || 0);
+  const rewardCoins = await processVoiceTimeReward(user.id, totalTime);
   
   if (rewardCoins > 0) {
-    // Resetear el tiempo de voz y actualizar recompensa
-    await updateUserData(user.id, { 
-      voiceJoinedAt: Date.now() // Reiniciamos el contador pero mantenemos al usuario en el canal
-    });
-    
     await reportCoins(user, rewardCoins, 'tiempo en voz');
   }
 }

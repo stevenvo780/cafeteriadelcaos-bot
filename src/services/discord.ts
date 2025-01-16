@@ -1,7 +1,6 @@
 import { Client, IntentsBitField, ChannelType, GatewayIntentBits, ThreadChannel } from 'discord.js'
-import { initUserData, updateUserData } from './firebase'
+import { initUserData, updateUserData, getCachedConfig } from './firebase'
 import { reportCoins } from './reward'
-import { REWARDS, MENSAJES_CAOS } from '../config/constants'
 import { handleVoiceStateUpdate } from '../handlers/voiceStateHandler';
 
 const client = new Client({
@@ -33,8 +32,9 @@ export async function initDiscord() {
       console.error('[Discord-Error] Error en el cliente:', error)
     })
     client.on('ready', async () => {
+      const config = getCachedConfig();
       console.error(`[Bot] Iniciado como: ${client.user?.tag}`)
-      console.log(`[Bot] Configuración actual:`, REWARDS)
+      console.log(`[Bot] Configuración actual:`, config.rewards)
       console.log(`[Server] Bot y servidor HTTP listos`)
     })
     client.on('voiceStateUpdate', handleVoiceStateUpdate);
@@ -59,16 +59,17 @@ export async function initDiscord() {
         const userData = await initUserData(userId)
         const newMessageCount = (userData.messages || 0) + 1
         const channelType = (message.channel as any).type
-        const isNormalChannel = REWARDS.MESSAGES.allowedChannels.includes(message.channel.id)
+        const config = getCachedConfig();
+        const isNormalChannel = config.rewards.messages.allowedChannels.includes(message.channel.id)
         if (isNormalChannel) {
-          await reportCoins({ id: userId, username }, REWARDS.MESSAGES.coins, 'mensajes enviados en canal normal')
+          await reportCoins({ id: userId, username }, config.rewards.messages.coins, 'mensajes enviados en canal normal')
         }
-        const isForum = channelType === ChannelType.GuildForum || REWARDS.FORUMS.allowedForums.includes(message.channel.id)
+        const isForum = channelType === ChannelType.GuildForum || config.rewards.forums.allowedForums.includes(message.channel.id)
         if (isForum) {
-          await reportCoins({ id: userId, username }, REWARDS.FORUMS.coins, 'participación en foros')
+          await reportCoins({ id: userId, username }, config.rewards.forums.coins, 'participación en foros')
         }
-        if (newMessageCount >= REWARDS.MESSAGES.amount) {
-          await reportCoins({ id: userId, username }, REWARDS.MESSAGES.coins, 'mensajes enviados')
+        if (newMessageCount >= config.rewards.messages.amount) {
+          await reportCoins({ id: userId, username }, config.rewards.messages.coins, 'mensajes enviados')
           await updateUserData(userId, { messages: 0 })
         } else {
           await updateUserData(userId, { messages: newMessageCount })
@@ -94,11 +95,12 @@ export async function initDiscord() {
           return;
         }
 
-        if (!REWARDS.FORUMS.allowedForums.includes(thread.parentId)) {
+        const config = getCachedConfig();
+        if (!config.rewards.forums.allowedForums.includes(thread.parentId)) {
           console.log('[Thread] Foro no permitido:', {
             threadId: thread.id,
             parentId: thread.parentId,
-            allowedForums: REWARDS.FORUMS.allowedForums
+            allowedForums: config.rewards.forums.allowedForums
           });
           return;
         }
@@ -111,13 +113,13 @@ export async function initDiscord() {
 
         await reportCoins(
           { id: thread.ownerId, username: user.username },
-          REWARDS.FORUMS.coins,
+          config.rewards.forums.coins,
           'crear nuevo tema en foro'
         );
 
-        const rewardMessage = MENSAJES_CAOS.RECOMPENSA
+        const rewardMessage = config.messages.recompensa
           .replace('{user}', `<@${thread.ownerId}>`)
-          .replace('{coins}', REWARDS.FORUMS.coins.toString());
+          .replace('{coins}', config.rewards.forums.coins.toString());
 
         await thread.send(rewardMessage);
         console.log('[Thread] Recompensa entregada a:', thread.ownerId);

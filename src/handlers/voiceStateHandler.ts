@@ -9,7 +9,6 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
   const username = oldState.member?.user.username || newState.member?.user.username || 'unknown';
   const userData = await initUserData(userId);
 
-  // Usuario se une a un canal de voz
   if (!oldState.channelId && newState.channelId) {
     await updateUserData(userId, {
       voiceJoinedAt: Date.now()
@@ -17,25 +16,32 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
     return;
   }
 
-  // Usuario deja un canal de voz
   if (oldState.channelId && !newState.channelId) {
     if (userData.voiceJoinedAt) {
-      await checkVoiceReward(userData, { id: userId, username });
+      const sessionTime = Date.now() - userData.voiceJoinedAt;
+      const totalTime = sessionTime + (userData.voiceTime || 0);
+      
       await updateUserData(userId, {
+        voiceTime: totalTime,
         voiceJoinedAt: null
       });
+      
+      await checkVoiceReward(userData, { id: userId, username });
     }
     return;
   }
 
-  // Usuario cambia de canal
   if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
     if (userData.voiceJoinedAt) {
-      await checkVoiceReward(userData, { id: userId, username });
-      // Reiniciamos el contador en el nuevo canal
+      const sessionTime = Date.now() - userData.voiceJoinedAt;
+      const totalTime = sessionTime + (userData.voiceTime || 0);
+      
       await updateUserData(userId, {
+        voiceTime: totalTime,
         voiceJoinedAt: Date.now()
       });
+      
+      await checkVoiceReward(userData, { id: userId, username });
     }
   }
 }
