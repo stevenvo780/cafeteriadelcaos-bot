@@ -6,12 +6,15 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
   const userId = oldState.member?.user.id || newState.member?.user.id;
   if (!userId) return;
 
+  if (newState.channelId && newState.member?.voice.selfDeaf) return;
+
   const username = oldState.member?.user.username || newState.member?.user.username || 'unknown';
   const userData = await initUserData(userId);
 
   if (!oldState.channelId && newState.channelId) {
     await updateUserData(userId, {
-      voiceJoinedAt: Date.now()
+      voiceJoinedAt: Date.now(),
+      voiceTime: userData.voiceTime || 0
     });
     return;
   }
@@ -40,8 +43,6 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
         voiceTime: totalTime,
         voiceJoinedAt: Date.now()
       });
-      
-      await checkVoiceReward(userData, { id: userId, username });
     }
   }
 }

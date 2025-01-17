@@ -102,29 +102,35 @@ export async function getCoins(userId: string): Promise<number> {
 async function processVoiceTimeReward(userId: string, timeInMs: number): Promise<number> {
   const config = getCachedConfig();
   const timeInMinutes = msToMinutes(timeInMs);
+  const requiredMinutes = config.rewards.voiceTime.minutes;
   
-  if (timeInMinutes >= config.rewards.voiceTime.minutes) {
+  if (timeInMinutes >= requiredMinutes) {
     const rewardCoins = config.rewards.voiceTime.coins;
-    const remainingMinutes = timeInMinutes % config.rewards.voiceTime.minutes;
+    const remainingMinutes = timeInMinutes % requiredMinutes;
     const remainingMs = minutesToMs(remainingMinutes);
     
-    // Actualizar el tiempo restante
     await updateUserData(userId, { 
-      voiceTime: remainingMs
+      voiceTime: remainingMs,
+      lastRewardTime: Date.now()
     });
     
     return rewardCoins;
   }
-  
   return 0;
 }
 
 export async function checkVoiceReward(userData: UserData, user: { id: string, username: string }): Promise<void> {
   if (!userData.voiceJoinedAt) return;
   
-  const currentSessionTime = Date.now() - userData.voiceJoinedAt;
-  const totalTime = currentSessionTime + (userData.voiceTime || 0);
-  const rewardCoins = await processVoiceTimeReward(user.id, totalTime);
+  const now = Date.now();
+  const currentSessionTime = now - userData.voiceJoinedAt;
+  const totalTimeMs = currentSessionTime + (userData.voiceTime || 0);
+  
+  console.log(`[Voice Check] ${user.username}:`);
+  console.log(`- Sesión actual: ${msToMinutes(currentSessionTime)} minutos`);
+  console.log(`- Tiempo acumulado: ${msToMinutes(totalTimeMs)} minutos`);
+  
+  const rewardCoins = await processVoiceTimeReward(user.id, totalTimeMs);
   
   if (rewardCoins > 0) {
     await reportCoins(user, rewardCoins, 'tiempo en voz');
