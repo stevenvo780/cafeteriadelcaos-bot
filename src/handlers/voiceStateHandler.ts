@@ -12,9 +12,10 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
   const userData = await initUserData(userId);
 
   if (!oldState.channelId && newState.channelId) {
+    // Al entrar a un canal, solo iniciamos el tiempo de sesión
     await updateUserData(userId, {
-      voiceJoinedAt: Date.now(),
-      voiceTime: userData.voiceTime || 0
+      voiceJoinedAt: Date.now()
+      // No tocamos voiceTime aquí, lo mantenemos acumulado
     });
     return;
   }
@@ -24,6 +25,7 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
       const sessionTime = Date.now() - userData.voiceJoinedAt;
       const totalTime = sessionTime + (userData.voiceTime || 0);
       
+      // Al salir actualizamos el tiempo total acumulado
       await updateUserData(userId, {
         voiceTime: totalTime,
         voiceJoinedAt: null
