@@ -48,23 +48,28 @@ export async function getUserCount(): Promise<number> {
 
 export async function initUserData(userId: string): Promise<UserData> {
   try {
-    console.log(`[Firebase] Intentando obtener datos del usuario: ${userId}`);
     const snapshot = await usersRef.child(userId).get();
+    const defaultData = {
+      messages: 0,
+      voiceTime: 0,
+      voiceJoinedAt: null,
+      lastUpdated: Date.now(),
+      lastRewardTime: 0,
+      specialChannelCounts: {}
+    };
+
     if (!snapshot.exists()) {
-      console.log(`[Firebase] Usuario ${userId} no existe, creando nuevo registro`);
-      const userData = {
-        messages: 0,
-        voiceTime: 0,
-        voiceJoinedAt: null,
-        lastUpdated: Date.now(),
-        lastRewardTime: 0
-      };
-      await usersRef.child(userId).set(userData);
-      console.log(`[Firebase] Usuario creado exitosamente:`, userData);
-      return userData;
+      await usersRef.child(userId).set(defaultData);
+      return defaultData;
     }
-    console.log(`[Firebase] Datos del usuario recuperados:`, snapshot.val());
-    return snapshot.val();
+
+    const userData = snapshot.val();
+    if (!userData.specialChannelCounts) {
+      userData.specialChannelCounts = {};
+      await usersRef.child(userId).update({ specialChannelCounts: {} });
+    }
+
+    return userData;
   } catch (error) {
     console.error('[Firebase-Error] Error inicializando usuario:', error);
     throw error;
@@ -104,36 +109,38 @@ export async function initializeConfig(): Promise<void> {
         messages: {
           amount: 90,
           coins: 1,
-          allowedChannels: [
-            '123456789012345678',
-            '123456789012345678'
-          ]
+          excludedChannels: ['000000000000000000']
+        },
+        specialChannels: {
+          channels: ['000000000000000000'],
+          amount: 50,
+          coins: 2
         },
         voiceTime: {
           minutes: 480,
-          coins: 1
+          coins: 1,
+          excludedChannels: ['000000000000000000']
         },
         forums: {
           coins: 1,
-          allowedForums: [
-            '123456789012345678',
-            '123456789012345678'
-          ]
+          allowedForums: ['000000000000000000']
         }
       },
       channels: {
-        rewardChannelId: '123456789012345678'
+        rewardChannelId: '000000000000000000'
       },
       messages: {
         recompensa: "{user} ¡Has ganado {coins} monedas del caos! 🎉",
-        error: "{user} ¡Ups! Algo salió mal... 😅",
+        error: "{user} ¡Ups! Algo salió mal... 😅"
       }
     };
 
     await configRef.set(defaultConfig);
     cachedConfig = defaultConfig;
+    console.log('[Firebase] Configuración por defecto creada');
   } else {
     cachedConfig = snapshot.val();
+    console.log('[Firebase] Configuración existente cargada');
   }
 
   configRef.on('value', (snapshot) => {

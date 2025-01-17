@@ -4,6 +4,9 @@ export interface UserData {
   voiceJoinedAt: number | null;
   lastUpdated: number;
   lastRewardTime: number;
+  specialChannelCounts: {
+    [channelId: string]: number;
+  };
 }
 
 export type MensajeTipo = 'RECOMPENSA' | 'ERROR';
@@ -33,11 +36,17 @@ export interface BotConfig {
     messages: {
       amount: number;
       coins: number;
-      allowedChannels: string[];
+      excludedChannels: string[];
+    };
+    specialChannels: {
+      channels: string[];
+      amount: number;
+      coins: number;
     };
     voiceTime: {
       minutes: number;
       coins: number;
+      excludedChannels: string[];
     };
     forums: {
       coins: number;
