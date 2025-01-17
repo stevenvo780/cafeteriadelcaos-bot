@@ -8,7 +8,7 @@ export async function handleVoiceStateUpdate(oldState: VoiceState, newState: Voi
 
   const config = getCachedConfig();
   
-  if (newState.channelId && config.rewards.voiceTime.excludedChannels.includes(newState.channelId)) {
+  if (newState.channelId && config.rewards.voiceTime.excludedChannels?.includes(newState.channelId)) {
     return;
   }
 

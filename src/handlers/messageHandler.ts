@@ -11,7 +11,7 @@ export async function handleMessage(message: Message): Promise<void> {
   if (message.channel.isThread() && message.channel.parent?.type === 15) {
     const forumId = message.channel.parent.id;
     const config = getCachedConfig();
-    if (config.rewards.forums.allowedForums.includes(forumId)) {
+    if (config.rewards.forums.allowedForums?.includes(forumId)) {
       await reportCoins(user, config.rewards.forums.coins, 'participación en foro');
     }
   }
@@ -24,7 +24,7 @@ async function updateMessageCount(user: { id: string, username: string }, channe
   if (!userData.specialChannelCounts) {
     userData.specialChannelCounts = {};
   }
-  if (config.rewards.specialChannels.channels.includes(channelId)) {
+  if (config.rewards.specialChannels.channels?.includes(channelId)) {
     const currentCount = (userData.specialChannelCounts[channelId] || 0) + 1;
     
     if (currentCount >= config.rewards.specialChannels.amount) {
@@ -48,7 +48,7 @@ async function updateMessageCount(user: { id: string, username: string }, channe
     return;
   }
 
-  if (!config.rewards.messages.excludedChannels.includes(channelId)) {
+  if (!config.rewards.messages.excludedChannels?.includes(channelId)) {
     const newMessageCount = (userData.messages || 0) + 1;
     if (newMessageCount >= config.rewards.messages.amount) {
       await Promise.all([
