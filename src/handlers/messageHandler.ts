@@ -1,4 +1,4 @@
-import { Message } from 'discord.js';
+import { Message, ChannelType } from 'discord.js';
 import { initUserData, updateUserData, getCachedConfig } from '../services/firebase';
 import { reportCoins } from '../services/reward';
 
@@ -8,7 +8,7 @@ export async function handleMessage(message: Message): Promise<void> {
   const user = { id: message.author.id, username: message.author.username };
   await updateMessageCount(user, message.channelId);
 
-  if (message.channel.isThread() && message.channel.parent?.type === 15) {
+  if (message.channel.isThread() && message.channel.parent?.type === ChannelType.GuildForum) {
     const forumId = message.channel.parent.id;
     const config = getCachedConfig();
     if (config.rewards.forums.allowedForums?.includes(forumId)) {
