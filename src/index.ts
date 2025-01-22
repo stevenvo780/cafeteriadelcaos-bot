@@ -109,7 +109,7 @@ async function startServer() {
 
     setInterval(async () => {
       try {
-        const response = await fetch(`https://cafeteriadelcaos-bot.onrender.com/health`);
+        const response = await fetch(`${process.env.APP_URL}/health`);
         if (!response.ok) {
           console.warn('[Health] El health check falló:', response.status);
         }
