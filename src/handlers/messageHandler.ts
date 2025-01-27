@@ -2,6 +2,7 @@ import { Message, ChannelType } from 'discord.js';
 import { initUserData, updateUserData, getCachedConfig } from '../services/firebase';
 import { reportCoins } from '../services/reward';
 import { createLibraryEntry, LibraryVisibility } from '../services/library';
+import { uploadImageFromUrl } from '../services/storage';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
@@ -32,9 +33,14 @@ async function handleForumPost(message: Message): Promise<void> {
 
   const title = message.channel.name;
   const description = message.content;
-  const imageUrl = message.attachments.first()?.url || null;
+  const attachment = message.attachments.first();
+  let imageUrl: string | null = null;
 
   try {
+    if (attachment?.url) {
+      imageUrl = await uploadImageFromUrl(attachment.url);
+    }
+
     await createLibraryEntry({
       title,
       description,
