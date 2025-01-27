@@ -126,6 +126,15 @@ export async function initializeConfig(): Promise<void> {
           allowedForums: ['000000000000000000']
         }
       },
+      library: {
+        defaultFolder: 'Foros',
+        defaultVisibility: 'PUBLIC',
+        forumConfig: {
+          enabled: true,
+          autoCreate: true,
+          defaultFolder: 'Foros'
+        }
+      },
       channels: {
         rewardChannelId: '000000000000000000'
       },
@@ -139,7 +148,20 @@ export async function initializeConfig(): Promise<void> {
     cachedConfig = defaultConfig;
     console.log('[Firebase] Configuración por defecto creada');
   } else {
-    cachedConfig = snapshot.val();
+    const existingConfig = snapshot.val();
+    if (!existingConfig.library) {
+      existingConfig.library = {
+        defaultFolder: 'Foros',
+        defaultVisibility: 'PUBLIC',
+        forumConfig: {
+          enabled: true,
+          autoCreate: true,
+          defaultFolder: 'Foros'
+        }
+      };
+      await configRef.update(existingConfig);
+    }
+    cachedConfig = existingConfig;
     console.log('[Firebase] Configuración existente cargada');
   }
 

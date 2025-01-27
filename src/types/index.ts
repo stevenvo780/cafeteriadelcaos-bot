@@ -31,6 +31,24 @@ export interface UserReward {
   username: string;
 }
 
+export type LibraryVisibility = 'PUBLIC' | 'PRIVATE' | 'USERS';
+
+export interface LibraryEntry {
+  title: string;
+  description: string;
+  folderTitle: string;
+  imageUrl?: string | null;
+  visibility: LibraryVisibility;
+}
+
+export interface CreateWithFolderDto {
+  title: string;
+  description: string;
+  folderTitle: string;
+  visibility?: LibraryVisibility;
+  imageUrl?: string | null;
+}
+
 export interface BotConfig {
   rewards: {
     messages: {
@@ -51,6 +69,15 @@ export interface BotConfig {
     forums: {
       coins: number;
       allowedForums: string[];
+    };
+  };
+  library: {
+    defaultFolder: string;
+    defaultVisibility: LibraryVisibility;
+    forumConfig: {
+      enabled: boolean;
+      autoCreate: boolean;
+      defaultFolder: string;
     };
   };
   channels: {
