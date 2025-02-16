@@ -16,10 +16,9 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<string> {
       throw new Error(`No se pudo obtener el bucket: ${bucketName}`);
     }
 
-    // Descargar imagen
     const response = await axios.get(imageUrl, { 
       responseType: 'arraybuffer',
-      timeout: 5000 // 5 segundos timeout
+      timeout: 5000
     });
     
     if (!response.headers['content-type']?.includes('image')) {
@@ -28,20 +27,17 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<string> {
 
     const buffer = Buffer.from(response.data, 'binary');
     
-    // Generar nombre único
     const fileExtension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
     const fileName = `library/${uuidv4()}.${fileExtension}`;
     const file = bucket.file(fileName);
     
-    // Subir a Firebase Storage
     await file.save(buffer, {
       metadata: {
         contentType: response.headers['content-type'],
       },
-      resumable: false // Mejor para archivos pequeños
+      resumable: false 
     });
 
-    // Obtener URL pública
     await file.makePublic();
     const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
     

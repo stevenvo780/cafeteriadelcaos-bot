@@ -4,8 +4,6 @@ import { reportCoins } from '../services/reward';
 import { createLibraryEntry, LibraryVisibility } from '../services/library';
 import { uploadImageFromUrl } from '../services/storage';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
-
 export async function handleMessage(message: Message): Promise<void> {
   if (message.author.bot) return;
 
@@ -17,10 +15,7 @@ export async function handleMessage(message: Message): Promise<void> {
     const config = getCachedConfig();
     
     if (config.rewards.forums.allowedForums?.includes(forumId)) {
-      await Promise.all([
-        reportCoins(user, config.rewards.forums.coins, 'participación en foro'),
-        handleForumPost(message)
-      ]);
+      await handleForumPost(message);
     }
   }
 }
@@ -49,6 +44,13 @@ async function handleForumPost(message: Message): Promise<void> {
       imageUrl
     });
     console.log(`[Library] Created entry for forum post: ${title}`);
+    
+    const config = getCachedConfig();
+    await reportCoins(
+      { id: message.author.id, username: message.author.username },
+      config.rewards.forums.coins,
+      'creación en foro'
+    );
   } catch (error) {
     console.error('[Library] Error creating entry:', error);
   }
